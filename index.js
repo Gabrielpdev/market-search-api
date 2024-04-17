@@ -24,8 +24,13 @@ app.get("/products", async (req, res) => {
   if (!query) return res.json({ error: "No product query provided" });
 
   const options = {
+    executablePath:
+      process.env.NODE_ENV === "production"
+        ? process.env.PUPPETEER_EXECUTABLE_PATH
+        : puppeteer.executablePath(),
     headless: false, // process.env['DISPLAY'] = ':0'; in index.js, xorg running.
     ignoreDefaultArgs: true, // needed ?
+    ignoreHTTPSErrors: true,
     devtools: false, // not needed so far, we can see websocket frames and xhr responses without that.
     //dumpio: true,
     defaultViewport: {
