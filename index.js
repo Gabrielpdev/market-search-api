@@ -2,7 +2,7 @@ const express = require("express");
 const puppeteer = require("puppeteer");
 // const chromium = require("@sparticuz/chromium-min");
 
-equire("dotenv").config();
+require("dotenv").config();
 
 // export interface IProduct {
 //   productName: null | string;
