@@ -1,6 +1,8 @@
 const express = require("express");
 const puppeteer = require("puppeteer");
-const chromium = require("@sparticuz/chromium-min");
+// const chromium = require("@sparticuz/chromium-min");
+
+equire("dotenv").config();
 
 // export interface IProduct {
 //   productName: null | string;
@@ -22,14 +24,26 @@ app.get("/products", async (req, res) => {
 
   if (!query) return res.json({ error: "No product query provided" });
 
+  // const browser = await puppeteer.launch({
+  //   args: chromium.args,
+  //   defaultViewport: chromium.defaultViewport,
+  //   executablePath: await chromium.executablePath(
+  //     "https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar"
+  //   ),
+  //   headless: chromium.headless,
+  //   ignoreHTTPSErrors: true,
+  // });
   const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath(
-      "https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar"
-    ),
-    headless: chromium.headless,
-    ignoreHTTPSErrors: true,
+    args: [
+      "--disable-setuid-sandbox",
+      "--no-sandbox",
+      "--single-process",
+      "--no-zygote",
+    ],
+    executablePath:
+      process.env.NODE_ENV === "production"
+        ? process.env.PUPPETEER_EXECUTABLE_PATH
+        : puppeteer.executablePath(),
   });
 
   const [kompraoProducts, giassiProducts] = await Promise.all([
