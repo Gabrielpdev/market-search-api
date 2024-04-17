@@ -1,26 +1,21 @@
 const express = require("express");
-// const puppeteer = require("puppeteer");
 const puppeteer = require("puppeteer-extra");
+// const puppeteer = require("puppeteer-core");
+// const chromium = require("@sparticuz/chromium");
+
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+puppeteer.use(StealthPlugin());
+
+const AdblockerPlugin = require("puppeteer-extra-plugin-adblocker");
+puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
 const cors = require("cors");
-
 require("dotenv").config();
-
-// export interface IProduct {
-//   productName: null | string;
-//   price: null | number;
-//   img: string;
-//   market: string;
-// }
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
-
-app.get("/", async (req, res) => {
-  res.send("Express on Vercel");
-});
 
 app.get("/products", async (req, res) => {
   const searchParams = req.query;
@@ -28,33 +23,74 @@ app.get("/products", async (req, res) => {
 
   if (!query) return res.json({ error: "No product query provided" });
 
-  // Add stealth plugin and use defaults (all tricks to hide puppeteer usage)
-  const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-  puppeteer.use(StealthPlugin());
-
-  // Add adblocker plugin, which will transparently block ads in all pages you
-  // create using puppeteer.
-  const AdblockerPlugin = require("puppeteer-extra-plugin-adblocker");
-  puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
-
-  const browser = await puppeteer.launch({
+  const options = {
+    headless: false, // process.env['DISPLAY'] = ':0'; in index.js, xorg running.
+    ignoreDefaultArgs: true, // needed ?
+    devtools: false, // not needed so far, we can see websocket frames and xhr responses without that.
+    //dumpio: true,
+    defaultViewport: {
+      //--window-size in args
+      width: 1280,
+      height: 882,
+    },
     args: [
+      /* TODO : https://peter.sh/experiments/chromium-command-line-switches/
+    there is still a whole bunch of stuff to disable
+  */
+      //'--crash-test', // Causes the browser process to crash on startup, useful to see if we catch that correctly
+      // not idea if those 2 aa options are usefull with disable gl thingy
+      "--disable-canvas-aa", // Disable antialiasing on 2d canvas
+      "--disable-2d-canvas-clip-aa", // Disable antialiasing on 2d canvas clips
+      "--disable-gl-drawing-for-tests", // BEST OPTION EVER! Disables GL drawing operations which produce pixel output. With this the GL output will not be correct but tests will run faster.
+      "--disable-dev-shm-usage", // ???
+      "--no-zygote", // wtf does that mean ?
+      "--use-gl=swiftshader", // better cpu usage with --use-gl=desktop rather than --use-gl=swiftshader, still needs more testing.
+      "--enable-webgl",
+      "--hide-scrollbars",
+      "--mute-audio",
+      "--no-first-run",
+      "--disable-infobars",
+      "--disable-breakpad",
+      //'--ignore-gpu-blacklist',
+      "--window-size=1280,1024", // see defaultViewport
+      "--user-data-dir=./chromeData", // created in index.js, guess cache folder ends up inside too.
+      "--no-sandbox", // meh but better resource comsuption
       "--disable-setuid-sandbox",
-      "--no-sandbox",
-      "--single-process",
-      "--no-zygote",
-    ],
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath(),
-    // headless: false,
-  });
+    ], // same
+    // '--proxy-server=socks5://127.0.0.1:9050'] // tor if needed
+  };
+
+  const browser = await puppeteer.launch(options);
+
+  // args: [...chrome.args, "--hide-scrollbars", "--disable-web-security"],
+  //     defaultViewport: chrome.defaultViewport,
+  //     executablePath: await chrome.executablePath,
+  //     headless: true,
+  //     ignoreHTTPSErrors: true,
+
+  // const browser = await puppeteer.launch({
+  //   args: [
+  //     "--disable-setuid-sandbox",
+  //     "--no-sandbox",
+  //     "--single-process",
+  //     "--no-zygote",
+  //     "--hide-scrollbars",
+  //     "--disable-web-security",
+  //   ],
+  //   executablePath:
+  //     process.env.NODE_ENV === "production"
+  //       ? process.env.PUPPETEER_EXECUTABLE_PATH
+  //       : puppeteer.executablePath(),
+  //   ignoreHTTPSErrors: true,
+  //   // headless: true,
+  //   headless: false,
+  // });
 
   const [kompraoProducts, giassiProducts] = await Promise.all([
     getProductsOnKomprao(query, browser),
     getProductsOnGiassi(query, browser),
   ]);
+
   await browser.close();
 
   const allData = [...kompraoProducts, ...giassiProducts];
@@ -80,15 +116,18 @@ app.get("/products", async (req, res) => {
 });
 
 async function getProductsOnKomprao(search, browser) {
-  let page = await browser.newPage();
+  const page = await browser.newPage();
+
+  await page.setRequestInterception(true);
 
   page.on("request", (request) => {
     if (
-      request.resourceType() === "image" ||
-      request.resourceType() === "stylesheet"
-    )
+      ["image", "stylesheet", "font"].indexOf(request.resourceType()) !== -1
+    ) {
       request.abort();
-    else request.continue();
+    } else {
+      request.continue();
+    }
   });
 
   const response = await page.goto(
@@ -113,10 +152,10 @@ async function getProductsOnKomprao(search, browser) {
     const [price, productName, img] = await Promise.allSettled([
       page.$eval(".price", (el) => el.textContent || "N/A"),
       page.$eval(".page-title", (el) => el.textContent || "N/A"),
-      page.$eval(".fotorama__stage__frame", (el) => {
-        console.log(el);
-        return el.getAttribute("href") || "/no-image.png";
-      }),
+      page.$eval(
+        ".fotorama__stage__frame",
+        (el) => el.getAttribute("href") || "/no-image.png"
+      ),
     ]);
 
     if (productName.status === "fulfilled") {
@@ -195,13 +234,16 @@ async function getProductsOnKomprao(search, browser) {
 async function getProductsOnGiassi(search, browser) {
   const page = await browser.newPage();
 
+  await page.setRequestInterception(true);
+
   page.on("request", (request) => {
     if (
-      request.resourceType() === "image" ||
-      request.resourceType() === "stylesheet"
-    )
+      ["image", "stylesheet", "font"].indexOf(request.resourceType()) !== -1
+    ) {
       request.abort();
-    else request.continue();
+    } else {
+      request.continue();
+    }
   });
 
   await page.goto(`https://www.giassi.com.br/${search}?map=ft&_q=${search}`);
