@@ -26,15 +26,15 @@ app.get("/products", async (req, res) => {
 
   if (!query) return res.json({ error: "No product query provided" });
 
-  // const browser = await puppeteer.launch({
-  //   args: chromium.args,
-  //   defaultViewport: chromium.defaultViewport,
-  //   executablePath: await chromium.executablePath(
-  //     "https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar"
-  //   ),
-  //   headless: chromium.headless,
-  //   ignoreHTTPSErrors: true,
-  // });
+  // Add stealth plugin and use defaults (all tricks to hide puppeteer usage)
+  const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+  puppeteer.use(StealthPlugin());
+
+  // Add adblocker plugin, which will transparently block ads in all pages you
+  // create using puppeteer.
+  const AdblockerPlugin = require("puppeteer-extra-plugin-adblocker");
+  puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+
   const browser = await puppeteer.launch({
     args: [
       "--disable-setuid-sandbox",
@@ -78,6 +78,16 @@ app.get("/products", async (req, res) => {
 
 async function getProductsOnKomprao(search, browser) {
   let page = await browser.newPage();
+
+  page.on("request", (request) => {
+    console.log(request.resourceType());
+    if (
+      request.resourceType() === "image" ||
+      req.resourceType() === "stylesheet"
+    )
+      request.abort();
+    else request.continue();
+  });
 
   const response = await page.goto(
     `https://www.superkoch.com.br/catalogsearch/result/?q=${search}`,
@@ -183,7 +193,19 @@ async function getProductsOnKomprao(search, browser) {
 async function getProductsOnGiassi(search, browser) {
   const page = await browser.newPage();
 
-  await page.goto(`https://www.giassi.com.br/${search}?map=ft&_q=${search}`);
+  page.on("request", (request) => {
+    console.log(request.resourceType());
+    if (
+      request.resourceType() === "image" ||
+      req.resourceType() === "stylesheet"
+    )
+      request.abort();
+    else request.continue();
+  });
+
+  await page.goto(`https://www.giassi.com.br/${search}?map=ft&_q=${search}`, {
+    waitUntil: "domcontentloaded",
+  });
 
   const productList = await page.$$(".vtex-search-result-3-x-galleryItem");
   const products = [];
