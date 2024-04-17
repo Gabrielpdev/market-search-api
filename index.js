@@ -48,7 +48,7 @@ app.get("/products", async (req, res) => {
       process.env.NODE_ENV === "production"
         ? process.env.PUPPETEER_EXECUTABLE_PATH
         : puppeteer.executablePath(),
-    headless: false,
+    // headless: false,
   });
 
   const [kompraoProducts, giassiProducts] = await Promise.all([
@@ -208,11 +208,6 @@ async function getProductsOnGiassi(search, browser) {
 
   const productList = await page.$$(".vtex-search-result-3-x-galleryItem");
   const products = [];
-
-  await page.screenshot({
-    path: "div.png",
-  });
-  // co;nsole.log(productList)
 
   for (let product of productList) {
     let productObj = {
