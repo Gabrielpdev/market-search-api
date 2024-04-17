@@ -28,7 +28,7 @@ app.get("/products", async (req, res) => {
       process.env.NODE_ENV === "production"
         ? process.env.PUPPETEER_EXECUTABLE_PATH
         : puppeteer.executablePath(),
-    headless: false, // process.env['DISPLAY'] = ':0'; in index.js, xorg running.
+    headless: true, // process.env['DISPLAY'] = ':0'; in index.js, xorg running.
     ignoreDefaultArgs: true, // needed ?
     ignoreHTTPSErrors: true,
     devtools: false, // not needed so far, we can see websocket frames and xhr responses without that.
@@ -56,6 +56,8 @@ app.get("/products", async (req, res) => {
       "--no-first-run",
       "--disable-infobars",
       "--disable-breakpad",
+      "--disable-font-subpixel-positioning",
+      "--disable-lcd-text",
       //'--ignore-gpu-blacklist',
       "--window-size=1280,1024", // see defaultViewport
       "--user-data-dir=./chromeData", // created in index.js, guess cache folder ends up inside too.
