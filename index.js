@@ -1,5 +1,7 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+// const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-extra");
+
 const cors = require("cors");
 
 require("dotenv").config();
@@ -46,6 +48,7 @@ app.get("/products", async (req, res) => {
       process.env.NODE_ENV === "production"
         ? process.env.PUPPETEER_EXECUTABLE_PATH
         : puppeteer.executablePath(),
+    headless: false,
   });
 
   const [kompraoProducts, giassiProducts] = await Promise.all([
@@ -80,10 +83,9 @@ async function getProductsOnKomprao(search, browser) {
   let page = await browser.newPage();
 
   page.on("request", (request) => {
-    console.log(request.resourceType());
     if (
       request.resourceType() === "image" ||
-      req.resourceType() === "stylesheet"
+      request.resourceType() === "stylesheet"
     )
       request.abort();
     else request.continue();
@@ -194,21 +196,23 @@ async function getProductsOnGiassi(search, browser) {
   const page = await browser.newPage();
 
   page.on("request", (request) => {
-    console.log(request.resourceType());
     if (
       request.resourceType() === "image" ||
-      req.resourceType() === "stylesheet"
+      request.resourceType() === "stylesheet"
     )
       request.abort();
     else request.continue();
   });
 
-  await page.goto(`https://www.giassi.com.br/${search}?map=ft&_q=${search}`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(`https://www.giassi.com.br/${search}?map=ft&_q=${search}`);
 
   const productList = await page.$$(".vtex-search-result-3-x-galleryItem");
   const products = [];
+
+  await page.screenshot({
+    path: "div.png",
+  });
+  // co;nsole.log(productList)
 
   for (let product of productList) {
     let productObj = {
