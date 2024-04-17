@@ -1,6 +1,6 @@
 const express = require("express");
 const puppeteer = require("puppeteer");
-// const chromium = require("@sparticuz/chromium-min");
+const cors = require("cors");
 
 require("dotenv").config();
 
@@ -13,6 +13,8 @@ require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+app.use(cors());
 
 app.get("/", async (req, res) => {
   res.send("Express on Vercel");
