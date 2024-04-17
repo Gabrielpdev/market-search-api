@@ -28,13 +28,11 @@ app.get("/products", async (req, res) => {
       process.env.NODE_ENV === "production"
         ? process.env.PUPPETEER_EXECUTABLE_PATH
         : puppeteer.executablePath(),
-    headless: true, // process.env['DISPLAY'] = ':0'; in index.js, xorg running.
-    ignoreDefaultArgs: true, // needed ?
+    // ignoreDefaultArgs: true, // needed ?
     ignoreHTTPSErrors: true,
     devtools: false, // not needed so far, we can see websocket frames and xhr responses without that.
     //dumpio: true,
     defaultViewport: {
-      //--window-size in args
       width: 1280,
       height: 882,
     },
@@ -63,8 +61,8 @@ app.get("/products", async (req, res) => {
       "--user-data-dir=./chromeData", // created in index.js, guess cache folder ends up inside too.
       "--no-sandbox", // meh but better resource comsuption
       "--disable-setuid-sandbox",
-    ], // same
-    // '--proxy-server=socks5://127.0.0.1:9050'] // tor if needed
+    ],
+    headless: true,
   };
 
   const browser = await puppeteer.launch(options);
